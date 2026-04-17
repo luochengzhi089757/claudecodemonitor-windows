@@ -1,0 +1,3 @@
+LIBRARY ClaudeCodePlugin
+EXPORTS
+    TMPluginGetInstance
