@@ -11,25 +11,32 @@ import time
 from pathlib import Path
 
 STATUS_FILE = Path(os.environ.get("TEMP", "")) / "claude-code-status.json"
+META_FILE = Path(os.environ.get("TEMP", "")) / "claude-hook-meta.json"
+LOG_FILE = Path(os.environ.get("TEMP", "")) / "claude-hook-debug.log"
 
-# Map hook events to status
-STATUS_MAP = {
-    "UserPromptSubmit": "busy",
-    "PreToolUse": "busy",
-    "PostToolUse": "busy",
-    "PostToolUseFailure": "busy",
-    "PermissionDenied": "busy",
-    "PreCompact": "busy",
-    "PostCompact": "busy",
-    "SubagentStart": "busy",
-    "SubagentStop": "busy",
-    "Stop": "idle",
-    "StopFailure": "idle",
-    "SessionStart": "idle",
-    "SessionEnd": "idle",
-}
+def read_meta():
+    try:
+        return json.loads(META_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+def write_meta(meta: dict):
+    try:
+        META_FILE.write_text(json.dumps(meta), encoding="utf-8")
+    except Exception:
+        pass
+
+def read_status():
+    try:
+        return json.loads(STATUS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 def write_status(status: str):
+    meta = read_meta()
+    meta["last_event"] = status
+    meta["last_time"] = time.time()
+    write_meta(meta)
     try:
         data = json.dumps({"status": status, "timestamp": int(time.time() * 1000)})
         STATUS_FILE.write_text(data, encoding="utf-8")
@@ -45,19 +52,54 @@ def main():
     event = data.get("hook_event_name", "")
     notification_type = data.get("notification_type", "")
 
+    # Debug log
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%H:%M:%S')}] event={event} notification={notification_type}\n")
+    except Exception:
+        pass
+
+    meta = read_meta()
+    last_event = meta.get("last_event", "")
+    last_time = meta.get("last_time", 0)
+    now = time.time()
+
     # Handle Notification events specially
     if event == "Notification":
         if notification_type == "idle_prompt":
-            write_status("idle")
+            write_status("waiting")
         sys.exit(0)
 
-    # Handle PermissionRequest - just let Claude Code handle it normally
+    # PermissionRequest → always write approval (user wants to see this)
     if event == "PermissionRequest":
+        write_status("approval")
         sys.exit(0)
 
-    # Map event to status
-    status = STATUS_MAP.get(event, "idle")
-    write_status(status)
+    # PreToolUse → write busy, but not if Stop fired within last 2 seconds
+    if event == "PreToolUse":
+        if last_event == "waiting" and (now - last_time) < 2:
+            sys.exit(0)  # Skip: Stop just fired, don't overwrite "waiting"
+        write_status("busy")
+        sys.exit(0)
+
+    # PostToolUse → restore busy after approval
+    if event == "PostToolUse":
+        if last_event == "approval":
+            write_status("busy")  # User approved, Claude resumes working
+        sys.exit(0)
+
+    # Map remaining key events
+    status_map = {
+        "UserPromptSubmit": "busy",
+        "Stop": "waiting",
+        "StopFailure": "error",
+        "SessionStart": "idle",
+        "SessionEnd": "offline",
+    }
+
+    status = status_map.get(event)
+    if status:
+        write_status(status)
 
 if __name__ == "__main__":
     main()
