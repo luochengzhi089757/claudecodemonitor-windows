@@ -1,6 +1,11 @@
-// ClaudeCodeStatus — TrafficMonitor Plugin v3.0
-// Reads status from %TEMP%\claude-code-status.json written by VS Code extension.
-// Fallback: if no status file exists, check claude.exe process existence.
+// ClaudeCodeStatus — TrafficMonitor Plugin v4.0
+// Reads status from %TEMP%\claude-code-status.json written by Claude Code hooks.
+// Status mapping:
+//   busy/working → 工作中
+//   idle         → 待命
+//   waiting      → 等待回复 (Claude completed, waiting for user)
+//   approval     → 等待批准 (Claude requesting permission)
+//   offline      → 离线
 
 #include "PluginInterface.h"
 #include <windows.h>
@@ -47,6 +52,10 @@ static std::wstring ReadStatusFile() {
     std::string status = content.substr(q1 + 1, q2 - q1 - 1);
     if (status == "busy" || status == "working") return L"\u5de5\u4f5c\u4e2d";
     if (status == "idle") return L"\u5f85\u547d";
+    if (status == "waiting") return L"\u7b49\u5f85\u56de\u590d";
+    if (status == "approval") return L"\u7b49\u5f85\u6279\u51c6";
+    if (status == "error") return L"\u51fa\u9519\u4e86";
+    if (status == "offline") return L"\u79bb\u7ebf";
     return L"";
 }
 
@@ -87,7 +96,7 @@ static void PollThread() {
             // Priority 2: read status file for working/idle
             new_text = ReadStatusFile();
             if (new_text.empty()) {
-                new_text = L"\u5f85\u547d";
+            new_text = L"\u5f85\u547d";
             }
         }
 
@@ -118,7 +127,7 @@ public:
         std::lock_guard<std::mutex> lock(g_statusMutex);
         return g_currentText.c_str();
     }
-    const wchar_t* GetItemValueSampleText() const override { return L"\u5de5\u4f5c\u4e2d"; }
+    const wchar_t* GetItemValueSampleText() const override { return L"\u7b49\u5f85\u56de\u590d"; }
     bool IsCustomDraw() const override { return false; }
 };
 
@@ -141,7 +150,7 @@ public:
             case TMI_DESCRIPTION: return L"Shows Claude Code activity status";
             case TMI_AUTHOR:      return L"You";
             case TMI_COPYRIGHT:   return L"";
-            case TMI_VERSION:     return L"3.0.0";
+            case TMI_VERSION:     return L"5.0.0";
             case TMI_URL:         return L"";
             default:              return L"";
         }
