@@ -6,13 +6,16 @@
 
 在电脑任务栏实时显示 Claude Code 的运行状态，不用切换窗口就能知道任务进度。
 
-**三种状态：**
+**六种状态：**
 
 | 显示 | 含义 |
 |---|---|
 | 离线 | Claude 没有启动 |
+| 待命 | Claude 刚启动，空闲中 |
 | 工作中 | Claude 正在处理任务 |
-| 待命 | Claude 处理完了，等你下一步指示 |
+| 等待回复 | Claude 回复完成，等你下一步指示 |
+| 等待批准 | Claude 请求权限执行操作 |
+| 出错了 | API 错误导致对话中断 |
 
 ## 前提条件
 
@@ -33,7 +36,7 @@
 
 #### 文件 ①：`ClaudeCodePlugin.dll`
 
-**来源**：本文件夹 `tm-plugin/ClaudeCodePlugin.dll`
+**来源**：从 [GitHub Release](https://github.com/luochengzhi089757/claudecodemonitor-windows/releases) 下载最新版本
 
 **放到这里**：
 1. 按 `Win + R` 打开"运行"对话框
@@ -43,7 +46,7 @@
 
 #### 文件 ②：`claude-island-state.py`
 
-**来源**：本文件夹 `hooks/claude-island-state.py`
+**来源**：从 [GitHub Release](https://github.com/luochengzhi089757/claudecodemonitor-windows/releases) 下载最新版本
 
 **放到这里**：
 1. 按 `Win + R` 打开"运行"对话框
@@ -65,9 +68,6 @@
     "PreToolUse": [
         { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
     ],
-    "PostToolUse": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
-    ],
     "Stop": [
         { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
     ],
@@ -75,6 +75,9 @@
         { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
     ],
     "Notification": [
+        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+    ],
+    "PermissionRequest": [
         { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
     ]
 }
@@ -96,8 +99,8 @@
 ## 验证是否成功
 
 打开 Claude Code，发送一条消息，观察任务栏：
-- 发消息瞬间 → 显示 **工作中**
-- Claude 回复完成后 → 显示 **待命**
+- 发消息时 → 显示 **工作中**
+- Claude 回复完成后 → 显示 **等待回复**
 
 ## 常见问题
 
@@ -121,11 +124,11 @@
 
 | 文件 | 用途 | 是否需要安装 |
 |---|---|---|
-| `tm-plugin/ClaudeCodePlugin.dll` | TrafficMonitor 插件（必须） | 放到 Plugins 文件夹 |
-| `hooks/claude-island-state.py` | 状态检测脚本（必须） | 放到 .claude/hooks 文件夹 |
+| `ClaudeCodePlugin.dll` | TrafficMonitor 插件（必须） | 放到 Plugins 文件夹 |
+| `claude-island-state.py` | 状态检测脚本（必须） | 放到 .claude/hooks 文件夹 |
 | `settings.json.example` | hooks 配置参考 | 仅作参考，不需放置 |
-| `tm-plugin/ClaudeCodePlugin.cpp` | 插件源码 | 普通用户不需要 |
-| `tm-plugin/build_mingw.bat` | 编译脚本 | 普通用户不需要 |
+| `ClaudeCodePlugin.cpp` | 插件源码 | 普通用户不需要 |
+| `build_mingw.bat` | 编译脚本 | 普通用户不需要 |
 
 ## 工作原理
 

@@ -150,7 +150,7 @@ public:
             case TMI_DESCRIPTION: return L"Shows Claude Code activity status";
             case TMI_AUTHOR:      return L"You";
             case TMI_COPYRIGHT:   return L"";
-            case TMI_VERSION:     return L"5.0.0";
+            case TMI_VERSION:     return L"1.0.1";
             case TMI_URL:         return L"";
             default:              return L"";
         }
