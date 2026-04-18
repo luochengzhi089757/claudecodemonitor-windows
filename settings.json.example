@@ -22,37 +22,7 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
+    "Stop": [
       {
         "hooks": [
           {
@@ -72,27 +42,17 @@
         ]
       }
     ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
-          }
-        ]
-      }
-    ],
     "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\""
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
       {
         "hooks": [
           {
