@@ -143,3 +143,8 @@ TrafficMonitor 插件每 500ms 读取
        ↓
 任务栏显示对应状态
 ```
+
+## 相关项目
+
+- [TrafficMonitor](https://github.com/zhongyang219/TrafficMonitor) — 本项目基于其插件系统实现，一款 Windows 任务栏网速/CPU/GPU 监控工具
+- [claude-island](https://github.com/farouqaldori/claude-island) — 状态检测逻辑的灵感来源，一个 macOS 菜单栏的 Claude Code 状态监控应用
