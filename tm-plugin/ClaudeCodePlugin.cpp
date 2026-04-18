@@ -51,11 +51,11 @@ static std::wstring ReadStatusFile() {
 
     std::string status = content.substr(q1 + 1, q2 - q1 - 1);
     if (status == "busy" || status == "working") return L"\u5de5\u4f5c\u4e2d";
-    if (status == "idle") return L"\u5f85\u547d";
+    if (status == "idle") return L"\u5f85\u547d\u4e2d";
     if (status == "waiting") return L"\u7b49\u5f85\u56de\u590d";
     if (status == "approval") return L"\u7b49\u5f85\u6279\u51c6";
     if (status == "error") return L"\u51fa\u9519\u4e86";
-    if (status == "offline") return L"\u79bb\u7ebf";
+    if (status == "offline") return L"\u79bb\u7ebf\u4e2d";
     return L"";
 }
 

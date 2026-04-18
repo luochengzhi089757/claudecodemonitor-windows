@@ -88,12 +88,18 @@ def main():
             write_status("busy")  # User approved, Claude resumes working
         sys.exit(0)
 
+    # SessionStart → write idle, but protect "waiting" from Stop
+    if event == "SessionStart":
+        if last_event == "waiting" and (now - last_time) < 30:
+            sys.exit(0)  # Skip: Stop just fired, preserve "waiting"
+        write_status("idle")
+        sys.exit(0)
+
     # Map remaining key events
     status_map = {
         "UserPromptSubmit": "busy",
         "Stop": "waiting",
         "StopFailure": "error",
-        "SessionStart": "idle",
         "SessionEnd": "offline",
     }
 
