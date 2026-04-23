@@ -4,18 +4,19 @@
 
 ## 这是什么？
 
-在电脑任务栏实时显示 Claude Code 的运行状态，不用切换窗口就能知道任务进度。
+在电脑任务栏实时显示 Claude Code 的运行状态，不用切换窗口就能知道任务进度。Claude 回复完成时自动弹出 Windows 通知。
 
-**六种状态：**
+**状态列表：**
 
-| 显示 | 含义 |
-|---|---|
-| 离线 | Claude 没有启动 |
-| 待命 | Claude 刚启动，空闲中 |
-| 工作中 | Claude 正在处理任务 |
-| 等待回复 | Claude 回复完成，等你下一步指示 |
-| 等待批准 | Claude 请求权限执行操作 |
-| 出错了 | API 错误导致对话中断 |
+| 显示 | 含义 | 触发时机 |
+|---|---|---|
+| 离线中 | Claude 没有启动 | 未运行或进程已结束 |
+| 待命中 | Claude 空闲，等你输入 | 刚启动 / 回复完成后 |
+| 工作中 | Claude 正在处理任务 | 你发送消息后 |
+| 等待批准 | Claude 请求权限 | 需要执行需要授权的操作时 |
+| 出错了 | API 错误导致中断 | 对话因错误中断 |
+
+**通知功能：** 当 Claude 从工作状态恢复到待命中时，任务栏右下角会弹出气泡通知「Claude 已回复完毕」。
 
 ## 前提条件
 
@@ -39,20 +40,15 @@
 **来源**：从 [GitHub Release](https://github.com/luochengzhi089757/claudecodemonitor-windows/releases) 下载最新版本
 
 **放到这里**：
-1. 按 `Win + R` 打开"运行"对话框
-2. 输入 `%APPDATA%\TrafficMonitor\Plugins` 点确定
-3. 如果 `Plugins` 文件夹不存在，先新建一个
-4. 把 `ClaudeCodePlugin.dll` 复制进去
+1. 在 TrafficMonitor 安装目录中找到 `Plugins` 文件夹
+2. 如果没有则新建一个
+3. 把 `ClaudeCodePlugin.dll` 复制进去
 
 #### 文件 ②：`claude-island-state.py`
 
 **来源**：从 [GitHub Release](https://github.com/luochengzhi089757/claudecodemonitor-windows/releases) 下载最新版本
 
-**放到这里**：
-1. 按 `Win + R` 打开"运行"对话框
-2. 输入 `%USERPROFILE%\.claude\hooks` 点确定
-3. 如果 `.claude` 或 `hooks` 文件夹不存在，依次新建
-4. 把 `claude-island-state.py` 复制进去
+**放到这里**：自定义路径，记住该位置即可（后续配置 hooks 时需要）。
 
 ### 第 2 步：配置 Claude Code 的 hooks
 
@@ -63,25 +59,27 @@
 ```json
 "hooks": {
     "UserPromptSubmit": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ],
     "PreToolUse": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ],
     "Stop": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ],
     "SessionStart": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ],
     "Notification": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ],
     "PermissionRequest": [
-        { "hooks": [{ "type": "command", "command": "python \"%USERPROFILE%\\.claude\\hooks\\claude-island-state.py\"" }] }
+        { "hooks": [{ "type": "command", "command": "python \"<你的hooks路径>\\claude-island-state.py\"" }] }
     ]
 }
 ```
+
+`<你的hooks路径>` 替换为 `claude-island-state.py` 所在的实际目录。
 
 **注意**：如果 `settings.json` 里已经有 `hooks` 字段，把上面的内容合并进去即可。
 
@@ -100,13 +98,13 @@
 
 打开 Claude Code，发送一条消息，观察任务栏：
 - 发消息时 → 显示 **工作中**
-- Claude 回复完成后 → 显示 **等待回复**
+- Claude 回复完成后 → 显示 **待命中**
 
 ## 常见问题
 
 **Q：Claude 启动或完成任务时，状态切换会慢半拍？**
 
-正常现象。Claude 启动时会同时触发多个事件（SessionStart、UserPromptSubmit、Stop 等），短时间内状态在"工作中"和"待命"之间频繁切换。为防止任务栏文字闪烁，插件内置了**防抖功能**：需要连续 2 次（约 1 秒）读到相同状态才会更新显示。这意味着状态切换会比实际事件晚约 1 秒，这是正常的，不会持续显示错误状态。
+正常现象。Claude 启动时会同时触发多个事件（SessionStart、UserPromptSubmit、Stop 等），短时间内状态在"工作中"和"待命中"之间频繁切换。为防止任务栏文字闪烁，插件内置了**防抖功能**：需要连续 2 次（约 1 秒）读到相同状态才会更新显示。这意味着状态切换会比实际事件晚约 1 秒，这是正常的，不会持续显示错误状态。
 
 **Q：任务栏没有显示"Claude Code"选项？**
 - 确认 `ClaudeCodePlugin.dll` 放到了正确的 `Plugins` 文件夹
@@ -124,8 +122,8 @@
 
 | 文件 | 用途 | 是否需要安装 |
 |---|---|---|
-| `ClaudeCodePlugin.dll` | TrafficMonitor 插件（必须） | 放到 Plugins 文件夹 |
-| `claude-island-state.py` | 状态检测脚本（必须） | 放到 .claude/hooks 文件夹 |
+| `ClaudeCodePlugin.dll` | TrafficMonitor 插件（v1.0.2，必须） | 放到 Plugins 文件夹 |
+| `claude-island-state.py` | 状态检测脚本（必须） | 自定义路径，记住即可 |
 | `settings.json.example` | hooks 配置参考 | 仅作参考，不需放置 |
 | `ClaudeCodePlugin.cpp` | 插件源码 | 普通用户不需要 |
 | `build_mingw.bat` | 编译脚本 | 普通用户不需要 |
@@ -141,7 +139,7 @@ claude-island-state.py 接收事件
        ↓
 TrafficMonitor 插件每 500ms 读取
        ↓
-任务栏显示对应状态
+任务栏显示对应状态 + 状态切换时弹出通知
 ```
 
 ## 相关项目

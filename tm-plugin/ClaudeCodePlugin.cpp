@@ -1,24 +1,25 @@
-// ClaudeCodeStatus — TrafficMonitor Plugin v4.0
+// ClaudeCodeStatus — TrafficMonitor Plugin
 // Reads status from %TEMP%\claude-code-status.json written by Claude Code hooks.
 // Status mapping:
 //   busy/working → 工作中
-//   idle         → 待命
-//   waiting      → 等待回复 (Claude completed, waiting for user)
+//   idle         → 待命中
+//   waiting      → 待命中 (Claude completed, waiting for user)
 //   approval     → 等待批准 (Claude requesting permission)
-//   offline      → 离线
+//   offline      → 离线中
 
 #include "PluginInterface.h"
 #include <windows.h>
+#include <shellapi.h>
 #include <tlhelp32.h>
 #include <string>
 #include <mutex>
 #include <atomic>
 #include <thread>
-#include <vector>
 #include <stdio.h>
+#include <time.h>
 
 static std::mutex   g_statusMutex;
-static std::wstring g_currentText = L"\u79bb\u7ebf";
+static std::wstring g_currentText = L"离线中";
 static std::atomic<bool> g_pollRunning{ true };
 
 static std::wstring GetStatusFilePath() {
@@ -39,7 +40,6 @@ static std::wstring ReadStatusFile() {
     buf[n] = '\0';
     std::string content(buf, n);
 
-    // Find "status" value
     auto pos = content.find("\"status\"");
     if (pos == std::string::npos) return L"";
     auto colon = content.find(':', pos);
@@ -50,12 +50,12 @@ static std::wstring ReadStatusFile() {
     if (q2 == std::string::npos) return L"";
 
     std::string status = content.substr(q1 + 1, q2 - q1 - 1);
-    if (status == "busy" || status == "working") return L"\u5de5\u4f5c\u4e2d";
-    if (status == "idle") return L"\u5f85\u547d\u4e2d";
-    if (status == "waiting") return L"\u7b49\u5f85\u56de\u590d";
-    if (status == "approval") return L"\u7b49\u5f85\u6279\u51c6";
-    if (status == "error") return L"\u51fa\u9519\u4e86";
-    if (status == "offline") return L"\u79bb\u7ebf\u4e2d";
+    if (status == "busy" || status == "working") return L"工作中";
+    if (status == "idle") return L"待命中";
+    if (status == "waiting") return L"待命中";
+    if (status == "approval") return L"等待批准";
+    if (status == "error") return L"出错了";
+    if (status == "offline") return L"离线中";
     return L"";
 }
 
@@ -79,6 +79,62 @@ static bool HasClaudeProcess() {
     return found;
 }
 
+// ── Windows balloon notification (via Shell_NotifyIconW) ────────────
+
+static time_t g_lastNotifyTime = 0;
+
+struct BalloonData {
+    wchar_t title[64];
+    wchar_t msg[256];
+};
+
+static DWORD WINAPI BalloonThread(LPVOID param) {
+    BalloonData* d = (BalloonData*)param;
+
+    // Create a temporary window for the tray icon
+    HWND hWnd = CreateWindowExW(0, L"STATIC", L"", WS_POPUP,
+        0, 0, 0, 0, NULL, NULL, GetModuleHandle(NULL), NULL);
+
+    HICON hIcon = LoadIcon(NULL, IDI_INFORMATION);
+
+    NOTIFYICONDATAW nid = {};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = hWnd;
+    nid.uID = 1;
+    nid.uFlags = NIF_ICON | NIF_INFO | NIF_TIP;
+    nid.hIcon = hIcon;
+    nid.dwInfoFlags = NIIF_INFO;
+    nid.uTimeout = 10000;
+    lstrcpynW(nid.szInfoTitle, d->title, ARRAYSIZE(nid.szInfoTitle));
+    lstrcpynW(nid.szInfo, d->msg, ARRAYSIZE(nid.szInfo));
+    lstrcpynW(nid.szTip, L"Claude Code", ARRAYSIZE(nid.szTip));
+
+    Shell_NotifyIconW(NIM_ADD, &nid);
+
+    // Wait for balloon to timeout or user interaction
+    Sleep(10000);
+
+    // Clean up
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+    DestroyIcon(hIcon);
+    DestroyWindow(hWnd);
+
+    delete d;
+    return 0;
+}
+
+static void ShowNotification(const wchar_t* title, const wchar_t* msg) {
+    time_t now = time(NULL);
+    if (now - g_lastNotifyTime < 10) return; // throttle: min 10s
+    g_lastNotifyTime = now;
+
+    BalloonData* d = new BalloonData;
+    lstrcpynW(d->title, title, ARRAYSIZE(d->title));
+    lstrcpynW(d->msg, msg, ARRAYSIZE(d->msg));
+
+    CreateThread(NULL, 0, BalloonThread, d, 0, NULL);
+}
+
 static void PollThread() {
     std::wstring last_status;
     std::wstring pending_status;
@@ -91,12 +147,12 @@ static void PollThread() {
 
         // Priority 1: if Claude process doesn't exist, always show offline
         if (!HasClaudeProcess()) {
-            new_text = L"\u79bb\u7ebf";
+            new_text = L"离线中";
         } else {
-            // Priority 2: read status file for working/idle
+            // Priority 2: read status file
             new_text = ReadStatusFile();
             if (new_text.empty()) {
-            new_text = L"\u5f85\u547d";
+                new_text = L"待命中";
             }
         }
 
@@ -109,9 +165,18 @@ static void PollThread() {
         }
 
         if (stable_count >= 2 && new_text != last_status) {
-            std::lock_guard<std::mutex> lock(g_statusMutex);
-            g_currentText = new_text;
-            last_status = new_text;
+            // Trigger notification when transitioning to "待命中" from a different state
+            bool shouldNotify = (new_text == L"待命中" && last_status != L"待命中");
+
+            {
+                std::lock_guard<std::mutex> lock(g_statusMutex);
+                g_currentText = new_text;
+                last_status = new_text;
+            }
+
+            if (shouldNotify) {
+                ShowNotification(L"Claude Code", L"Claude 已回复完毕");
+            }
         }
     }
 }
@@ -127,7 +192,7 @@ public:
         std::lock_guard<std::mutex> lock(g_statusMutex);
         return g_currentText.c_str();
     }
-    const wchar_t* GetItemValueSampleText() const override { return L"\u7b49\u5f85\u56de\u590d"; }
+    const wchar_t* GetItemValueSampleText() const override { return L"待命中"; }
     bool IsCustomDraw() const override { return false; }
 };
 
@@ -150,7 +215,7 @@ public:
             case TMI_DESCRIPTION: return L"Shows Claude Code activity status";
             case TMI_AUTHOR:      return L"You";
             case TMI_COPYRIGHT:   return L"";
-            case TMI_VERSION:     return L"1.0.1";
+            case TMI_VERSION:     return L"1.0.3";
             case TMI_URL:         return L"";
             default:              return L"";
         }
